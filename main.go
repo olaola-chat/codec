@@ -31,7 +31,7 @@ var (
 )  
   
 const (  
-    tableKey%pbName = "table.key.%tableKey.id.%d"
+    tableKey%pbName = "table.key.%tableKey.%id.%d"
 )  
   
 func init() {  
@@ -61,14 +61,15 @@ func (b %lowerNameCodec) Key(key uint32) string {
 // Pk 根据proto数据，获取主键信息  
 func (b %lowerNameCodec) Pk(data proto.Message) uint32 {  
     if entity, ok := data.(*pb.Entity%pbName); ok {    
-		return entity.Id    
+		id:= entity.%entity_id
+		return uint32(id)
 	}    
 	return 0
 }  
   
 func (b %lowerNameCodec) One(ctx context.Context, key uint32, data proto.Message) error {  
     //排除大字段，description  
-    err := dao.%pbName.Ctx(ctx).Where("id = ?", key).Struct(data)  
+    err := dao.%pbName.Ctx(ctx).Where("%id = ?", key).Struct(data)  
 	if err != nil && err != sql.ErrNoRows {      
 		return err   
 	}    
@@ -76,7 +77,7 @@ func (b %lowerNameCodec) One(ctx context.Context, key uint32, data proto.Message
 }  
   
 func (b %lowerNameCodec) FindAll(ctx context.Context, keys []uint32, callback go2cache.Find2Item) error {  
-    res, err := dao.%pbName.Ctx(ctx).Where("id in (?)", keys).FindAll()   
+    res, err := dao.%pbName.Ctx(ctx).Where("%id in (?)", keys).FindAll()   
 	if err != nil { 
 		return err   
 	}   
@@ -92,6 +93,7 @@ func main() {
 	s := flag.Int64("s", 0, "cache 的缓存过期时间，单位s")
 	h := flag.Int64("h", 0, "cache 的缓存过期时间，单位小时,默认3")
 	d := flag.String("d", "passive", "redis的那个模块的db,按业务区分。目前提供 story,property,block,user...")
+	primaryAlisaName := flag.String("p_alias", "id", "默认id，但你的表如果唯一索引锁uid，这里你就可以用uid")
 	mode := flag.String("m", "slp", "给个项目的go.mod的包名")
 	flag.Parse()
 	if *tablename == "" {
@@ -123,6 +125,8 @@ func main() {
 	ttt = strings.Replace(ttt, "%tableKey", tableName, 1000)
 	ttt = strings.Replace(ttt, "%ttl", gconv.String(seconds), 1000)
 	ttt = strings.Replace(ttt, "%redis-db", redisDb, 100)
+	ttt = strings.Replace(ttt, "%entity_id", FirstUpper(*primaryAlisaName), 100)
+	ttt = strings.Replace(ttt, "%id", strings.ToLower(*primaryAlisaName), 100)
 	generate(tableName, ttt)
 }
 
@@ -217,4 +221,3 @@ func RunCommand(path, name string, arg ...string) (msg string, err error) {
 	}
 	return
 }
-
